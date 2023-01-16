@@ -1,0 +1,14 @@
+{
+  "name": "first-task",
+  "version": "1.0.0",
+  "description": "Serverless Framework Python SQS Producer-Consumer on AWS",
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "serverless-deployment-bucket": "^1.6.0",
+    "serverless-iam-roles-per-function": "^3.2.0",
+    "serverless-lift": "^1.21.0",
+    "serverless-prune-plugin": "^2.0.1",
+    "serverless-python-requirements": "^6.0.0"
+  }
+}

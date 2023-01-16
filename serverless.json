@@ -1,0 +1,349 @@
+{
+  "org": "yagelpinhasserverless",
+  "app": "serverlesstask",
+  "service": "serverlesstask",
+  "frameworkVersion": "3",
+  "plugins": [
+    "serverless-python-requirements",
+    "serverless-iam-roles-per-function"
+  ],
+  "package": {
+    "exclude": [
+      "node_modules/*",
+      "venv/*"
+    ]
+  },
+  "provider": {
+    "name": "aws",
+    "runtime": "python3.8",
+    "httpApi": {
+      "authorizers": {
+        "customAuthorizer": {
+          "type": "request",
+          "functionName": "custom-authorizer"
+        }
+      }
+    },
+    "iam": {
+      "role": {
+        "statements": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "s3:PutObject",
+              "s3:PutObjectAcl",
+              "s3:GetObject",
+              "s3:GetObjectAcl",
+              "s3:AbortMultipartUpload"
+            ],
+            "Resource": [
+              "arn:aws:s3:::yagel-s3bucket",
+              "arn:aws:s3:::yagel-s3bucket/*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "*"
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "sqs:SendMessage",
+              "sqs:GetQueueUrl",
+              "sqs:ListQueues"
+            ],
+            "Resource": [
+              "arn:aws:sqs:us-east-1:103162528131:serverlesstask-dev-YagelSQS-eaCrF7spcBHf",
+              "arn:aws:sqs:us-east-1:103162528131:serverlesstask-dev-YagelSQS-eaCrF7spcBHf/*"
+            ],
+            "Condition": {
+              "ArnEquals": {
+                "aws:SourceArn": [
+                  "arn:aws:sns:us-east-1:103162528131:serverlesstask-dev-YagelSNS-1vRGnhZ2oblF",
+                  "arn:aws:sns:us-east-1:103162528131:serverlesstask-dev-YagelSNS-1vRGnhZ2oblF/*"
+                ]
+              }
+            }
+          },
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "arn:aws:sns:us-east-1:103162528131:yagel-sns"
+          },
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "arn:aws:dynamodb:us-east-1:103162528131:table/users-serverless"
+          }
+        ]
+      }
+    }
+  },
+  "functions": {
+    "store_content": {
+      "handler": "lambdas/handler.store_content",
+      "environment": {
+        "BUCKET_NAME": "yagel-s3bucket"
+      },
+      "events": [
+        {
+          "sqs": {
+            "arn": "arn:aws:sqs:us-east-1:103162528131:serverlesstask-dev-YagelSQS-eaCrF7spcBHf"
+          }
+        }
+      ]
+    },
+    "pydantic_lambda": {
+      "handler": "lambdas/pydantichandler.pydantic_lambda",
+      "environment": {
+        "SNS_NAME": "yagel-sns"
+      },
+      "events": [
+        {
+          "httpApi": {
+            "path": "/message",
+            "method": "POST",
+            "authorizer": {
+              "name": "customAuthorizer"
+            }
+          }
+        }
+      ],
+      "role": "stsRole"
+    },
+    "custom-authorizer": {
+      "handler": "lambdas/authorizer.authorizer_lambda",
+      "environment": {
+        "TABLE_NAME": "users-serverless"
+      },
+      "role": "stsRole"
+    },
+    "login_lambda": {
+      "handler": "lambdas/login_handler.login_lambda",
+      "events": [
+        {
+          "httpApi": {
+            "path": "/login",
+            "method": "POST"
+          }
+        }
+      ],
+      "environment": {
+        "TABLE_NAME": "users-serverless"
+      },
+      "role": "stsRole"
+    },
+    "register": {
+      "handler": "lambdas/register_handler.register_lambda",
+      "events": [
+        {
+          "httpApi": {
+            "path": "/register",
+            "method": "POST"
+          }
+        }
+      ],
+      "environment": {
+        "TABLE_NAME": "users-serverless"
+      }
+    }
+  },
+  "resources": {
+    "Resources": {
+      "YagelS3": {
+        "Type": "AWS::S3::Bucket",
+        "Properties": {
+          "BucketName": "yagel-s3bucket",
+          "BucketEncryption": {
+            "ServerSideEncryptionConfiguration": [
+              {
+                "ServerSideEncryptionByDefault": {
+                  "SSEAlgorithm": "AES256"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "YagelSQS": {
+        "Type": "AWS::SQS::Queue"
+      },
+      "YagelSNS": {
+        "Type": "AWS::SNS::Topic",
+        "Properties": {
+          "TopicName": "yagel-sns",
+          "Subscription": [
+            {
+              "Protocol": "sqs",
+              "Endpoint": "arn:aws:sqs:us-east-1:103162528131:serverlesstask-dev-YagelSQS-eaCrF7spcBHf"
+            }
+          ]
+        }
+      },
+      "QueuePolicy": {
+        "Type": "AWS::SQS::QueuePolicy",
+        "Properties": {
+          "Queues": [
+            {
+              "Ref": "YagelSQS"
+            }
+          ],
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "allow-sns-messages",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "sns.amazonaws.com"
+                },
+                "Action": "sqs:SendMessage",
+                "Resource": {
+                  "Fn::GetAtt": [
+                    "YagelSQS",
+                    "Arn"
+                  ]
+                },
+                "Condition": {
+                  "ArnEquals": {
+                    "aws:SourceArn": {
+                      "Ref": "YagelSNS"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "usersTable": {
+        "Type": "AWS::DynamoDB::Table",
+        "Properties": {
+          "TableName": "users-serverless",
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "username",
+              "AttributeType": "S"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "username",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 1,
+            "WriteCapacityUnits": 1
+          }
+        }
+      },
+      "stsRole": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "Policies": [
+            {
+              "PolicyName": "some-policy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Action": [
+                      "logs:*"
+                    ],
+                    "Resource": "*",
+                    "Effect": "Allow"
+                  },
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "s3:PutObject",
+                      "s3:PutObjectAcl",
+                      "s3:GetObject",
+                      "s3:GetObjectAcl",
+                      "s3:AbortMultipartUpload"
+                    ],
+                    "Resource": [
+                      "arn:aws:s3:::yagel-s3bucket",
+                      "arn:aws:s3:::yagel-s3bucket/*"
+                    ]
+                  },
+                  {
+                    "Effect": "Allow",
+                    "Action": "s3:ListBucket",
+                    "Resource": "*"
+                  },
+                  {
+                    "Effect": "Allow",
+                    "Action": "*",
+                    "Resource": "arn:aws:dynamodb:us-east-1:103162528131:table/users-serverless"
+                  },
+                   {
+                      "Effect": "Allow",
+                      "Action": "*",
+                      "Resource": "arn:aws:sns:us-east-1:103162528131:yagel-sns"
+                  }
+                ]
+              }
+            }
+          ],
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": [
+                    "lambda.amazonaws.com",
+                    "apigateway.amazonaws.com"
+                  ]
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          }
+        }
+      },
+      "AccessToSecretsManagerRole": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "RoleName": "access-to-secrets-manager",
+          "Policies": [
+            {
+              "PolicyName": "access-to-secrets-manager-policy",
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "secretsmanager:GetSecretValue",
+                      "sts:AssumeRole"
+                    ],
+                    "Resource": [
+                      "arn:aws:secretsmanager:us-east-1:103162528131:secret:magic_word-mW22tF"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": "arn:aws:iam::103162528131:role/serverlesstask-dev-stsRole-1AKM8AFWLSO1O"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+
