@@ -9,7 +9,13 @@ dynamodb = boto3.client('dynamodb')
 
 
 def authorizer_lambda(event, context):
+    print("the event in authorizer is : ")
+    print(event)
+    print("event headers is : ")
+    print(event["headers"])
     encoded_jwt = event["headers"]["authorization"]
+    print("encoded jwt is : ")
+    print(encoded_jwt)
     secret_name = "magic_word"
     region_name = "us-east-1"
     sts = boto3.client("sts")
@@ -50,5 +56,8 @@ def authorizer_lambda(event, context):
                         },
                     ],
                 },
+                "context":{
+                    "username": username
+                }
             }
     return {"statusCode": 403, "body": json.dumps({"message": "bad token"})}

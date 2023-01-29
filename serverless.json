@@ -102,7 +102,7 @@
       "events": [
         {
           "httpApi": {
-            "path": "/message",
+            "path": "/messages",
             "method": "POST",
             "authorizer": {
               "name": "customAuthorizer"
@@ -145,8 +145,63 @@
         }
       ],
       "environment": {
-        "TABLE_NAME": "users-serverless"
+        "TABLE_NAME": "users-serverless",
+        "BUCKET_NAME": "yagel-s3bucket"
       }
+    },
+    "delete_item": {
+      "handler": "lambdas/delete_item_handler.delete_item_lambda",
+      "events": [
+        {
+          "httpApi": {
+            "path": "/messages/{itemname}",
+            "method": "DELETE",
+            "authorizer": {
+              "name": "customAuthorizer"
+            }
+          }
+        }
+      ],
+      "environment": {
+        "BUCKET_NAME": "yagel-s3bucket"
+      },
+      "role": "stsRole"
+    },
+    "update_item": {
+      "handler": "lambdas/update_item_handler.update_item_lambda",
+      "events": [
+        {
+          "httpApi": {
+            "path": "/messages/{itemname}",
+            "method": "PATCH",
+            "authorizer": {
+              "name": "customAuthorizer"
+            }
+          }
+        }
+      ],
+      "environment": {
+        "BUCKET_NAME": "yagel-s3bucket"
+      },
+      "role": "stsRole"
+    },
+    "get_items": {
+      "handler": "lambdas/get_items_handler.get_items_lambda",
+      "events": [
+        {
+          "httpApi": {
+            "path": "/messages",
+            "method": "GET",
+            "authorizer": {
+              "name": "customAuthorizer"
+            }
+          }
+        }
+      ],
+      "environment": {
+        "BUCKET_NAME": "yagel-s3bucket"
+      },
+      "role": "stsRole"
     }
   },
   "resources": {
@@ -262,7 +317,8 @@
                       "s3:PutObjectAcl",
                       "s3:GetObject",
                       "s3:GetObjectAcl",
-                      "s3:AbortMultipartUpload"
+                      "s3:AbortMultipartUpload",
+                      "s3:DeleteObject"
                     ],
                     "Resource": [
                       "arn:aws:s3:::yagel-s3bucket",

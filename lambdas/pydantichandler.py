@@ -5,13 +5,17 @@ from model import Model
 
 
 def pydantic_lambda(event, context):
+    print("event is: ")
+    print(event)
     message_object = json.loads(event["body"])
     model = Model(**message_object)
+    username = event["requestContext"]["authorizer"]["lambda"]["username"]
     model_object = {
         "id": str(model.id),
         "created_at": str(model.created_at),
         "item": model.item,
-        "content": model.content
+        "content": model.content,
+        "username": username
     }
     client = boto3.client('sns')
     try:
