@@ -15,5 +15,13 @@ def get_items_lambda(event, context):
     print("type of contents is : ")
     print(type(contents))
     items = list(map(lambda item: item["Key"], contents))
-    model_object = {"Objects": str(items)}
+    print("items are: ")
+    print(items)
+    print("type of items is : ")
+    print(type(items))
+    items.remove(username+"/")
+    items = [item.replace(username+"/","") for item in items]
+    print("new items @@@ is: ")
+    print(items)
+    model_object = {"Objects": items}
     return {"statusCode": 200, "body": json.dumps(model_object)}
